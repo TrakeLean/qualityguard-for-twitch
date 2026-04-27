@@ -4,21 +4,28 @@ import { findSettingsButton, findQualityMenuButton, findQualityOptions, findOpti
 const PROACTIVE_FLAG = '__qualityguard_proactive_done';
 
 function findPlayerFromVideo(video) {
-  if (!video) return null;
+  const roots = [
+    video,
+    document.querySelector('[data-a-target="video-ref"]'),
+    document.querySelector('[data-a-target="video-player"]'),
+    document.querySelector('.video-player__container')
+  ].filter(Boolean);
 
-  const fiberKey = Object.keys(video).find(k => k.startsWith('__reactFiber$'));
-  if (!fiberKey) return null;
+  for (const root of roots) {
+    const fiberKey = Object.getOwnPropertyNames(root).find(k => k.startsWith('__reactFiber$'));
+    if (!fiberKey) continue;
 
-  let node = video[fiberKey];
-  while (node) {
-    const inst = node.stateNode;
-    if (inst && typeof inst.setQuality === 'function' && typeof inst.getQuality === 'function') {
-      return inst;
+    let node = root[fiberKey];
+    while (node) {
+      const inst = node.stateNode;
+      if (inst && typeof inst.setQuality === 'function') {
+        return inst;
+      }
+      if (inst?.player && typeof inst.player.setQuality === 'function') {
+        return inst.player;
+      }
+      node = node.return;
     }
-    if (inst && inst.player && typeof inst.player.setQuality === 'function') {
-      return inst.player;
-    }
-    node = node.return;
   }
 
   return null;
@@ -54,6 +61,55 @@ function applyProactiveLocalStorage(target) {
     }
   } catch {
     localStorage.setItem('video-quality', JSON.stringify({ default: target }));
+  }
+}
+
+function getAvailableQualities(player) {
+  if (Array.isArray(player?.props?.availableQualities)) return player.props.availableQualities;
+
+  try {
+    const mediaQualities = player?.props?.mediaPlayerInstance?.getQualities?.();
+    if (Array.isArray(mediaQualities)) return mediaQualities;
+  } catch {
+    // Ignore and fall back to empty list.
+  }
+
+  return [];
+}
+
+function resolveQualityTarget(player, target) {
+  const qualities = getAvailableQualities(player);
+  if (target === 'auto') return 'auto';
+
+  const exact = qualities.find(q => q.group === target || q.name === target);
+  if (exact?.group) return exact.group;
+
+  const partial = qualities.find(q => q.group?.includes(target) || q.name?.includes(target));
+  if (partial?.group) return partial.group;
+
+  if (target === 'chunked') {
+    const fixed = qualities
+      .filter(q => q.group !== 'auto')
+      .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0));
+    return fixed[0]?.group ?? target;
+  }
+
+  return target;
+}
+
+function getPlayerQuality(player) {
+  try {
+    if (typeof player?.getQuality === 'function') return player.getQuality();
+  } catch {
+    // Continue to mediaPlayerInstance fallback.
+  }
+
+  try {
+    const media = player?.props?.mediaPlayerInstance;
+    if (media?.isAutoQualityMode?.()) return 'auto';
+    return media?.getQuality?.() ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -117,8 +173,9 @@ window.addEventListener('message', async event => {
     }
 
     try {
-      player.setQuality(event.data.target);
-      window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: true, target: event.data.target }, '*');
+      const resolvedTarget = resolveQualityTarget(player, event.data.target);
+      player.setQuality(resolvedTarget);
+      window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: true, target: event.data.target, resolvedTarget, via: 'api' }, '*');
     } catch (err) {
       const uiResult = await uiAutomationFallback(event.data.target);
       window.postMessage({
@@ -134,7 +191,7 @@ window.addEventListener('message', async event => {
 
   if (type === MSG.AUTOQUALITY_GET) {
     const player = await waitForPlayer(2000);
-    const current = player?.getQuality?.() ?? null;
+    const current = getPlayerQuality(player);
     window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: true, current }, '*');
   }
 });
