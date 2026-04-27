@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: false,
-    include: ['tests/**/*.test.js']
+    include: ['tests/**/*.test.js'],
+    setupFiles: ['./tests/setup-chrome.js']
   }
 });
