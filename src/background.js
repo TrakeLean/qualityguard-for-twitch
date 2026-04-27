@@ -3,7 +3,7 @@ import { MSG } from './lib/messages.js';
 
 const tabCounts = new Map();
 const recentEvents = [];
-const RECENT_LIMIT = 20;
+const RECENT_LIMIT = 80;
 
 function pushRecent(event) {
   recentEvents.push({ ...event, at: new Date().toISOString() });
@@ -26,6 +26,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       setBadge(tabId);
     }
     pushRecent({ event: 'reset', height: msg.height, target: msg.target, tabId });
+    return;
+  }
+
+  if (msg.type === MSG.DEBUG_EVENT) {
+    pushRecent({
+      event: msg.event ?? 'debug',
+      detail: msg.detail ?? null,
+      height: msg.height,
+      target: msg.target,
+      current: msg.current,
+      ok: msg.ok,
+      error: msg.error,
+      tabId: sender.tab?.id
+    });
     return;
   }
 

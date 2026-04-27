@@ -67,6 +67,16 @@ function postToPage(message, timeoutMs = 4000) {
   });
 }
 
+function reportEvent(event, detail = {}) {
+  chrome.runtime.sendMessage({
+    type: MSG.DEBUG_EVENT,
+    event,
+    target: settings?.targetQuality,
+    height: lastHeight,
+    ...detail
+  });
+}
+
 window.addEventListener('message', event => {
   if (event.source !== window || !event.data || event.data.type !== MSG.AUTOQUALITY_RESULT) return;
 
@@ -178,23 +188,41 @@ function qualityMatchesTarget(current, target) {
   return normalized.startsWith(normalizedTarget);
 }
 
+function storedDefaultQuality() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('video-quality') ?? 'null');
+    return parsed?.default ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function verifyTargetQuality(target) {
   await sleep(250);
   const result = await postToPage({ type: MSG.AUTOQUALITY_GET }, 1500);
+  const storedDefault = storedDefaultQuality();
+
   if (!result.ok) {
     log('quality verification failed:', result.error);
-    return false;
+    const ok = target === 'auto' && storedDefault === 'auto';
+    reportEvent('verify_failed', { ok, error: result.error, current: storedDefault });
+    return ok;
   }
 
-  const ok = qualityMatchesTarget(result.current, target);
-  log('quality verification:', result.current, 'target=', target, 'ok=', ok);
+  const ok = qualityMatchesTarget(result.current, target) || (target === 'auto' && storedDefault === 'auto');
+  log('quality verification:', result.current, 'storedDefault=', storedDefault, 'target=', target, 'ok=', ok);
+  reportEvent('verify_result', { ok, current: { player: result.current, storedDefault } });
   return ok;
 }
 
 async function uiAutomationFallback(target) {
   const button = findSettingsButton();
-  if (!button) return false;
+  if (!button) {
+    reportEvent('ui_no_settings_button');
+    return false;
+  }
 
+  reportEvent('ui_open_settings');
   activateElement(button);
   let clickedQualityMenu = false;
 
@@ -206,6 +234,7 @@ async function uiAutomationFallback(target) {
       const targetLabel = target === 'chunked' ? 'Source' : target === 'auto' ? 'Auto' : target;
       const opt = findOptionByLabel(opts, targetLabel) ?? findOptionByLabel(opts, '1080') ?? opts[1] ?? opts[0];
       if (opt) {
+        reportEvent('ui_select_option', { detail: opt.label });
         activateElement(opt.element, { keyboard: true });
         document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, composed: true }));
         return true;
@@ -215,6 +244,7 @@ async function uiAutomationFallback(target) {
     if (!clickedQualityMenu) {
       const qualityButton = findQualityMenuButton();
       if (qualityButton) {
+        reportEvent('ui_open_quality_menu', { detail: qualityButton.textContent?.trim() ?? null });
         activateElement(qualityButton, { keyboard: true });
         await sleep(150);
         clickedQualityMenu = true;
@@ -222,11 +252,13 @@ async function uiAutomationFallback(target) {
     }
   }
 
+  reportEvent('ui_timeout');
   return false;
 }
 
 async function performReset(reason) {
   log('reset triggered:', reason, 'target=', settings.targetQuality);
+  reportEvent('reset_start', { detail: reason });
 
   let result;
   let resetSucceeded = false;
@@ -237,28 +269,37 @@ async function performReset(reason) {
   }
 
   if (result.ok) {
+    reportEvent('api_set_result', { ok: true });
     consecutiveApiFailures = 0;
     resetSucceeded = settings.targetQuality !== 'auto' && await verifyTargetQuality(settings.targetQuality);
     if (!resetSucceeded && settings.targetQuality === 'auto') {
       log('auto target requires explicit UI selection');
+      reportEvent('api_auto_requires_ui');
     }
   } else {
     consecutiveApiFailures++;
     log('api failed:', result.error);
+    reportEvent('api_set_result', { ok: false, error: result.error });
   }
 
   if (!resetSucceeded) {
     log('falling back to UI selection');
+    reportEvent('ui_fallback_start');
     const uiOk = await uiAutomationFallback(settings.targetQuality);
     if (!uiOk) {
       log('UI fallback failed');
+      reportEvent('ui_fallback_failed');
       return;
     }
-    resetSucceeded = settings.targetQuality === 'auto' || await verifyTargetQuality(settings.targetQuality);
+    resetSucceeded = settings.targetQuality === 'auto' ? await verifyTargetQuality(settings.targetQuality) : await verifyTargetQuality(settings.targetQuality);
   }
 
-  if (!resetSucceeded) return;
+  if (!resetSucceeded) {
+    reportEvent('reset_unverified');
+    return;
+  }
 
+  reportEvent('reset_success');
   cooldown.recordAttempt(performance.now());
   showToast(`Quality restored to ${settings.targetQuality === 'chunked' ? 'Source' : settings.targetQuality}`);
   await recordReset();
@@ -269,11 +310,21 @@ function scheduleDeferredReset(video, observedHeight, reason) {
   if (deferredResetTimer) clearTimeout(deferredResetTimer);
 
   log('reset deferred:', reason, 'height=', observedHeight);
+  reportEvent('reset_deferred', { detail: reason, height: observedHeight });
   deferredResetTimer = setTimeout(() => {
     deferredResetTimer = null;
-    if (!settings.enabled) return;
-    if (!video.isConnected || video.videoHeight !== observedHeight) return;
-    if (!cooldown.canAttempt(performance.now())) return;
+    if (!settings.enabled) {
+      reportEvent('deferred_skip_disabled', { height: observedHeight });
+      return;
+    }
+    if (!video.isConnected || video.videoHeight !== observedHeight) {
+      reportEvent('deferred_skip_changed', { height: video.videoHeight, detail: `expected ${observedHeight}` });
+      return;
+    }
+    if (!cooldown.canAttempt(performance.now())) {
+      reportEvent('deferred_skip_cooldown', { height: observedHeight });
+      return;
+    }
     performReset(`${reason} after suppression`);
   }, DEFERRED_RESET_MS);
 }
@@ -284,6 +335,7 @@ function attachVideoListeners(video) {
     if (!h) return;
 
     if (shouldReset(lastHeight, h, settings)) {
+      reportEvent('resize_trigger', { height: h, detail: `from ${lastHeight}` });
       if (cooldown.canAttempt(performance.now())) {
         performReset('video resize');
       } else {
