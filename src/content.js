@@ -148,6 +148,44 @@ function activateElement(el, { keyboard = false } = {}) {
   }
 }
 
+function currentQualityValue(current) {
+  if (current === null || current === undefined) return null;
+  if (typeof current === 'string') return current;
+  if (typeof current === 'object') {
+    return current.group
+      ?? current.quality
+      ?? current.name
+      ?? current.label
+      ?? current.value
+      ?? null;
+  }
+  return String(current);
+}
+
+function qualityMatchesTarget(current, target) {
+  const value = currentQualityValue(current);
+  if (!value) return false;
+
+  const normalized = String(value).toLowerCase();
+  const normalizedTarget = target.toLowerCase();
+  if (normalizedTarget === 'chunked') return normalized.includes('chunked') || normalized.includes('source');
+  if (normalizedTarget === 'auto') return normalized.includes('auto');
+  return normalized.startsWith(normalizedTarget);
+}
+
+async function verifyTargetQuality(target) {
+  await sleep(250);
+  const result = await postToPage({ type: MSG.AUTOQUALITY_GET }, 1500);
+  if (!result.ok) {
+    log('quality verification failed:', result.error);
+    return false;
+  }
+
+  const ok = qualityMatchesTarget(result.current, target);
+  log('quality verification:', result.current, 'target=', target, 'ok=', ok);
+  return ok;
+}
+
 async function uiAutomationFallback(target) {
   const button = findSettingsButton();
   if (!button) return false;
@@ -186,23 +224,35 @@ async function performReset(reason) {
   log('reset triggered:', reason, 'target=', settings.targetQuality);
 
   let result;
+  let resetSucceeded = false;
   if (consecutiveApiFailures < 3) {
     result = await postToPage({ type: MSG.AUTOQUALITY_SET, target: settings.targetQuality });
   } else {
     result = { ok: false, error: 'api_disabled_until_next_page' };
   }
 
-  if (!result.ok) {
-    consecutiveApiFailures++;
-    log('api failed, falling back to UI:', result.error);
-    const uiOk = await uiAutomationFallback(settings.targetQuality);
-    if (!uiOk) {
-      log('UI fallback also failed');
-      return;
+  if (result.ok) {
+    consecutiveApiFailures = 0;
+    resetSucceeded = settings.targetQuality !== 'auto' && await verifyTargetQuality(settings.targetQuality);
+    if (!resetSucceeded && settings.targetQuality === 'auto') {
+      log('auto target requires explicit UI selection');
     }
   } else {
-    consecutiveApiFailures = 0;
+    consecutiveApiFailures++;
+    log('api failed:', result.error);
   }
+
+  if (!resetSucceeded) {
+    log('falling back to UI selection');
+    const uiOk = await uiAutomationFallback(settings.targetQuality);
+    if (!uiOk) {
+      log('UI fallback failed');
+      return;
+    }
+    resetSucceeded = settings.targetQuality === 'auto' || await verifyTargetQuality(settings.targetQuality);
+  }
+
+  if (!resetSucceeded) return;
 
   cooldown.recordAttempt(performance.now());
   showToast(`Quality restored to ${settings.targetQuality === 'chunked' ? 'Source' : settings.targetQuality}`);
