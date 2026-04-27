@@ -34,11 +34,26 @@ Ship a Manifest V3 Chrome extension — **QualityGuard for Twitch** — that det
 | Trigger | radio | "Only when forced to 160p" | Other options: "Any drop from preferred quality", "Any change from Auto". |
 | Target quality | dropdown | "Source" | Options: Auto, Source, 1080p60, 720p60, 480p, 360p, 160p. |
 | Show toast | toggle | on | In-player confirmation when a reset happens. |
+| Debug mode | toggle | off | Enables verbose `[QualityGuard]`-prefixed console logging. |
 
 Stats (read-only in popup):
 - Lifetime reset count.
 - Last reset timestamp (relative).
 - Per-tab count (matches badge).
+
+Popup actions:
+- **Copy debug info** — copies a JSON blob to clipboard with: settings, stats, last 20 reset events (timestamp + previous/new height + path used: API or UI), detected Twitch player version (if exposed), extension version. Useful for bug reports.
+
+## Keyboard Shortcuts
+
+Declared via the `commands` API in the manifest:
+
+| Command | Default binding | Action |
+|---|---|---|
+| `toggle-guard` | `Alt+Shift+Q` | Flips master enabled on/off. Surface a brief toast confirming the new state. |
+| `force-reset` | `Alt+Shift+R` | Triggers an immediate reset to target quality, ignoring cooldown. Useful for manual recovery if the extension missed an event. |
+
+Bindings are user-rebindable from `chrome://extensions/shortcuts`.
 
 ## Architecture
 
@@ -50,14 +65,23 @@ ChromeAutoAuto/
 ├── src/
 │   ├── content.js      — orchestrator, runs on live channel pages (isolated world)
 │   ├── injected.js     — talks to Twitch's player (page world)
-│   ├── background.js   — service worker, badge + lifetime stats
+│   ├── background.js   — service worker, badge + lifetime stats + commands
 │   ├── popup.html
-│   ├── popup.js        — settings UI + stats
-│   └── storage.js      — shared chrome.storage helpers
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+│   ├── popup.js        — settings UI + stats + diagnostics export
+│   ├── storage.js      — shared chrome.storage helpers
+│   └── debug.js        — `log()` helper that no-ops unless debug mode is on
+├── icons/
+│   ├── icon16.png
+│   ├── icon48.png
+│   └── icon128.png
+├── store/
+│   ├── PRIVACY.md          — privacy policy (required by Web Store)
+│   ├── description.md      — store listing copy (short + long)
+│   ├── promo-tile-spec.md  — 440×280 / 920×680 / 1400×560 promo tile briefs
+│   └── screenshots/        — 1280×800 PNGs (popup, in-action toast, settings)
+└── docs/
+    ├── superpowers/specs/   — design docs
+    └── test-plan.md         — manual smoke checklist
 ```
 
 ### Why two scripts in the page
@@ -72,6 +96,7 @@ Content scripts run in an isolated JavaScript world and cannot reach `window.Twi
 - Content script `matches: ["https://www.twitch.tv/*"]` with a JS-side guard that only activates on live channel URLs (excludes `/videos/`, `/directory`, `/p/`, etc.).
 - `web_accessible_resources` exposes `injected.js` to the page.
 - `action` (popup) and `background` (service worker) declared.
+- `commands` section declares `toggle-guard` and `force-reset` keyboard shortcuts.
 
 ## Components
 
@@ -98,12 +123,20 @@ Content scripts run in an isolated JavaScript world and cannot reach `window.Twi
 ### `background.js` (service worker)
 - Holds an in-memory map `tabId → resetCount`. Wipes on `chrome.tabs.onRemoved` and on cross-origin navigation.
 - On `INCREMENT_BADGE`: increments per-tab counter, calls `chrome.action.setBadgeText({tabId, text})`.
-- On `INCREMENT_BADGE`: also increments lifetime counter in `chrome.storage.local` and stamps `lastResetAt`.
+- On `INCREMENT_BADGE`: also increments lifetime counter in `chrome.storage.local`, stamps `lastResetAt`, and appends to a rolling buffer of the last 20 reset events for diagnostics export.
+- Listens to `chrome.commands.onCommand`:
+  - `toggle-guard` → flips `enabled` setting; relays to active tab so it can show a toast.
+  - `force-reset` → relays to active tab to trigger an immediate reset bypassing the cooldown.
 
 ### `popup.html` / `popup.js`
 - Plain HTML + minimal JS, no framework needed.
 - Reads/writes settings via `storage.js`.
 - Re-renders stats every time the popup opens.
+- "Copy debug info" button → assembles the diagnostics JSON (settings + stats + recent events from the service worker + `navigator.userAgent` + extension `chrome.runtime.getManifest().version`) and writes it to clipboard via `navigator.clipboard.writeText`.
+
+### `debug.js`
+- Tiny module exporting `log(...args)` that no-ops unless the user has flipped on the Debug mode setting.
+- All scripts (`content.js`, `injected.js` mirror, `background.js`, `popup.js`) route their logs through this. Keeps console clean by default; flips to verbose with one toggle.
 
 ### `storage.js`
 - `getSettings() / setSettings(partial)` against `chrome.storage.sync`.
@@ -190,6 +223,28 @@ Selector resolution priority: user-provided CSS selectors → `data-a-target` at
 ### Layer 3 — Integration tests (deferred)
 Puppeteer/Playwright with extension loaded. Defer until v1 ships and manual flow is stable.
 
+## Icon Design
+
+Concept: a **shield silhouette** with a small **upward chevron** (or play-arrow pointing up) inside, suggesting "protect + raise quality". Two-color flat design: Twitch purple (#9146FF) on a dark background works thematically without mimicking Twitch's logo (avoids trademark issues — Web Store rejects extensions that look like first-party Twitch products).
+
+Required sizes:
+- `icon16.png` — toolbar / extension list. Strip detail; the chevron should still read.
+- `icon48.png` — extensions management page.
+- `icon128.png` — Web Store listing.
+
+Implementer note: build the master at 512×512 in vector form (SVG kept in `icons/source.svg`), then export the three PNG sizes. Don't upscale from 128.
+
+## Store Listing Prep
+
+Files in `store/` cover everything needed to submit:
+
+- **`PRIVACY.md`** — privacy policy. The extension stores zero personal data; settings + stats live in `chrome.storage` (synced across the user's own Chrome profile only). The policy must state this explicitly: "QualityGuard does not collect, transmit, or store any personal data. All settings and statistics are kept locally in the user's browser via Chrome's storage API."
+- **`description.md`** — short description (≤132 chars) for the listing card and a longer description (~1500 chars) for the detail page. Lead with the user-visible problem ("Twitch dropping you to 160p?"), not the implementation.
+- **`promo-tile-spec.md`** — text briefs for each Web Store promo tile size: small (440×280, required), large (920×680, optional), marquee (1400×560, optional). Each brief lists the headline, subhead, and visual treatment so a designer (or future iteration) can produce them.
+- **`screenshots/`** — 1280×800 or 640×400 PNGs. Web Store requires 1–5. Plan for: (1) the in-player toast in action, (2) the popup with stats counter showing a high number, (3) the settings panel, (4) a before/after shot of player quality.
+
+The store folder is a deliverable, not a runtime concern — it's not bundled into the published `.zip`.
+
 ## Open Questions
 
 None blocking — all design decisions resolved in brainstorming.
@@ -200,3 +255,5 @@ None blocking — all design decisions resolved in brainstorming.
 - Firefox port (manifest differences are minor).
 - Per-channel overrides (if a channel always streams at 720p, don't fight it).
 - Telemetry opt-in (count of resets across users, helps detect Twitch tactic changes).
+- Internationalization via `_locales/` (English-only at launch).
+- Dark/light theme detection in popup (system-only at launch).
