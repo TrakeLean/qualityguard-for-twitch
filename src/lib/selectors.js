@@ -21,6 +21,7 @@ const QUALITY_MENU_SELECTORS = [
 ];
 
 const QUALITY_MENU_WORDS = ['quality', 'kvalitet'];
+const QUALITY_MENU_CLASS_FALLBACK_SELECTOR = '.Layout-sc-1xcs6mc-0.dCYttJ';
 
 function getLabelText(el) {
   return [
@@ -28,6 +29,11 @@ function getLabelText(el) {
     el.getAttribute('title'),
     el.textContent
   ].filter(Boolean).join(' ').trim();
+}
+
+function isFinalQualityOption(el) {
+  return el.getAttribute('role') === 'menuitemradio'
+    || el.matches?.('[data-a-target="player-settings-submenu-quality-option"]');
 }
 
 export function findSettingsButton(root = document) {
@@ -49,16 +55,21 @@ export function findSettingsButton(root = document) {
 export function findQualityMenuButton(root = document) {
   for (const sel of QUALITY_MENU_SELECTORS) {
     const el = root.querySelector(sel);
-    if (el && el.getAttribute('role') !== 'menuitemradio') return el;
+    if (el && !isFinalQualityOption(el)) return el;
   }
 
   const menuItems = root.querySelectorAll('[role="menuitem"], button, [data-a-target*="quality" i]');
   for (const el of menuItems) {
-    if (el.getAttribute('role') === 'menuitemradio') continue;
-    if (el.matches?.('[data-a-target="player-settings-submenu-quality-option"]')) continue;
+    if (isFinalQualityOption(el)) continue;
 
     const text = getLabelText(el).toLowerCase();
     if (QUALITY_MENU_WORDS.some(word => text.includes(word))) return el;
+  }
+
+  const classCandidates = root.querySelectorAll(QUALITY_MENU_CLASS_FALLBACK_SELECTOR);
+  for (const el of classCandidates) {
+    if (isFinalQualityOption(el)) continue;
+    return el.closest('button, [role="menuitem"]') ?? el;
   }
 
   return null;

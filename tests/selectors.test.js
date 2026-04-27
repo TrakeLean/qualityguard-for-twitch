@@ -84,6 +84,24 @@ describe('findQualityMenuButton', () => {
     `);
     expect(findQualityMenuButton()).toBeNull();
   });
+
+  it('falls back to the observed Twitch layout class when labels are unavailable', () => {
+    setBody(`
+      <div role="menu">
+        <button role="menuitem" id="quality" class="Layout-sc-1xcs6mc-0 dCYttJ"></button>
+      </div>
+    `);
+    expect(findQualityMenuButton()?.id).toBe('quality');
+  });
+
+  it('does not treat final radio options with the layout class as the submenu button', () => {
+    setBody(`
+      <div role="menu">
+        <button role="menuitemradio" id="source" class="Layout-sc-1xcs6mc-0 dCYttJ">1080p60</button>
+      </div>
+    `);
+    expect(findQualityMenuButton()).toBeNull();
+  });
 });
 
 describe('findQualityOptions', () => {
