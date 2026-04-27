@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>QualityGuard</h1>
+      <label class="toggle">
+        <input type="checkbox" id="enabled" />
+        <span>Enabled</span>
+      </label>
+    </header>
+
+    <section>
+      <label for="trigger">Trigger</label>
+      <select id="trigger">
+        <option value="forced160">Only when forced to 160p</option>
+        <option value="anyDrop">Any drop from preferred quality</option>
+        <option value="anyChange">Any change from Auto</option>
+      </select>
+    </section>
+
+    <section>
+      <label for="targetQuality">Target quality</label>
+      <select id="targetQuality">
+        <option value="auto">Auto</option>
+        <option value="chunked">Source</option>
+        <option value="1080p60">1080p60</option>
+        <option value="720p60">720p60</option>
+        <option value="480p">480p</option>
+        <option value="360p">360p</option>
+        <option value="160p">160p</option>
+      </select>
+    </section>
+
+    <section>
+      <label class="toggle"><input type="checkbox" id="showToast" /> <span>Show toast in player</span></label>
+      <label class="toggle"><input type="checkbox" id="debugMode" /> <span>Debug mode</span></label>
+    </section>
+
+    <section class="stats">
+      <h2>Stats</h2>
+      <div>Lifetime resets: <span id="lifetime">0</span></div>
+      <div>This tab: <span id="tab">0</span></div>
+      <div>Last reset: <span id="last">never</span></div>
+    </section>
+
+    <section>
+      <button id="copyDebug">Copy debug info</button>
+      <span id="copyDebugStatus"></span>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

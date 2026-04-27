@@ -1,0 +1,11 @@
+:root { color-scheme: light dark; }
+body { font: 13px system-ui, sans-serif; width: 280px; margin: 0; padding: 12px; }
+h1 { font-size: 14px; margin: 0; }
+h2 { font-size: 12px; margin: 8px 0 4px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.04em; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+section { margin-bottom: 10px; }
+section label { display: block; margin-bottom: 4px; }
+.toggle { display: flex; align-items: center; gap: 6px; margin: 0; }
+select, button { width: 100%; padding: 6px; font: inherit; }
+.stats div { display: flex; justify-content: space-between; padding: 2px 0; }
+#copyDebugStatus { font-size: 11px; opacity: 0.7; margin-left: 6px; }

@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "QualityGuard for Twitch",
+  "short_name": "QualityGuard",
+  "version": "0.1.0",
+  "description": "Restores your preferred Twitch player quality after forced downgrades.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.twitch.tv/*"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "QualityGuard for Twitch",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/injected.js"],
+      "matches": ["https://www.twitch.tv/*"]
+    }
+  ],
+  "commands": {
+    "toggle-guard": {
+      "suggested_key": { "default": "Alt+Shift+Q" },
+      "description": "Toggle QualityGuard on/off"
+    },
+    "force-reset": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "Force a quality reset right now"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
