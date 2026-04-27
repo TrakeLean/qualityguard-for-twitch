@@ -74,11 +74,10 @@ window.addEventListener('message', event => {
 function showToast(text) {
   if (!settings.showToast) return;
 
-  const player = document.querySelector('#channel-player') ?? document.body;
   const toast = document.createElement('div');
   toast.textContent = text;
   Object.assign(toast.style, {
-    position: 'absolute',
+    position: 'fixed',
     top: '12px',
     left: '50%',
     transform: 'translateX(-50%)',
@@ -92,8 +91,7 @@ function showToast(text) {
     transition: 'opacity 0.3s',
     opacity: '1'
   });
-  player.style.position ||= 'relative';
-  player.appendChild(toast);
+  document.documentElement.appendChild(toast);
   setTimeout(() => { toast.style.opacity = '0'; }, 1700);
   setTimeout(() => toast.remove(), 2000);
 }
@@ -108,8 +106,12 @@ function activationTarget(el) {
 
 function dispatchPointerSequence(el) {
   const rect = el.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
+  if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return false;
+
   const target = document.elementFromPoint(x, y) ?? el;
   const eventInit = {
     bubbles: true,
@@ -131,16 +133,16 @@ function dispatchPointerSequence(el) {
   }
   target.dispatchEvent(new MouseEvent('mouseup', { ...eventInit, buttons: 0 }));
   target.dispatchEvent(new MouseEvent('click', { ...eventInit, buttons: 0 }));
+  return true;
 }
 
 function activateElement(el, { keyboard = false } = {}) {
   const target = activationTarget(el);
-  target.scrollIntoView?.({ block: 'center', inline: 'center' });
   target.focus?.();
-  dispatchPointerSequence(target);
+  const pointerOk = dispatchPointerSequence(target);
   target.click?.();
 
-  if (keyboard) {
+  if (keyboard || !pointerOk) {
     for (const key of ['Enter', ' ']) {
       target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true }));
       target.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true, composed: true }));
