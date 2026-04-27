@@ -12,6 +12,9 @@ let lastHeight = null;
 let consecutiveApiFailures = 0;
 let messageId = 0;
 const pendingMessages = new Map();
+let deferredResetTimer = null;
+
+const DEFERRED_RESET_MS = 3200;
 
 function isLiveChannelUrl(url = location.href) {
   const u = new URL(url);
@@ -262,13 +265,30 @@ async function performReset(reason) {
   chrome.runtime.sendMessage({ type: MSG.INCREMENT_BADGE, height: lastHeight, target: settings.targetQuality });
 }
 
+function scheduleDeferredReset(video, observedHeight, reason) {
+  if (deferredResetTimer) clearTimeout(deferredResetTimer);
+
+  log('reset deferred:', reason, 'height=', observedHeight);
+  deferredResetTimer = setTimeout(() => {
+    deferredResetTimer = null;
+    if (!settings.enabled) return;
+    if (!video.isConnected || video.videoHeight !== observedHeight) return;
+    if (!cooldown.canAttempt(performance.now())) return;
+    performReset(`${reason} after suppression`);
+  }, DEFERRED_RESET_MS);
+}
+
 function attachVideoListeners(video) {
   const onResize = () => {
     const h = video.videoHeight;
     if (!h) return;
 
-    if (shouldReset(lastHeight, h, settings) && cooldown.canAttempt(performance.now())) {
-      performReset('video resize');
+    if (shouldReset(lastHeight, h, settings)) {
+      if (cooldown.canAttempt(performance.now())) {
+        performReset('video resize');
+      } else {
+        scheduleDeferredReset(video, h, 'video resize');
+      }
     }
     lastHeight = h;
   };
