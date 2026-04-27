@@ -14,6 +14,13 @@ describe('settings', () => {
     expect(got.enabled).toBe(false);
     expect(got.trigger).toBe(DEFAULT_SETTINGS.trigger);
   });
+
+  it('migrates removed anyChange trigger to anyDrop', async () => {
+    await chrome.storage.sync.set({ settings: { trigger: 'anyChange' } });
+
+    const got = await getSettings();
+    expect(got.trigger).toBe('anyDrop');
+  });
 });
 
 describe('stats', () => {
@@ -43,6 +50,17 @@ describe('subscribeSettings', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].enabled).toBe(false);
+    off();
+  });
+
+  it('emits migrated settings when stored trigger is removed', async () => {
+    const calls = [];
+    const off = subscribeSettings(s => calls.push(s));
+
+    await chrome.storage.sync.set({ settings: { trigger: 'anyChange' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(calls[0].trigger).toBe('anyDrop');
     off();
   });
 });

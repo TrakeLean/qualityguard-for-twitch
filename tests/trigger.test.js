@@ -48,16 +48,9 @@ describe('shouldReset', () => {
     });
   });
 
-  describe('trigger=anyChange', () => {
-    const s = { ...baseSettings, trigger: 'anyChange' };
-
-    it('returns true on any height change', () => {
-      expect(shouldReset(1080, 720, s)).toBe(true);
-      expect(shouldReset(720, 1080, s)).toBe(true);
-    });
-
-    it('returns false when heights are equal', () => {
-      expect(shouldReset(720, 720, s)).toBe(false);
+  describe('unsupported trigger', () => {
+    it('returns false', () => {
+      expect(shouldReset(1080, 720, { ...baseSettings, trigger: 'anyChange' })).toBe(false);
     });
   });
 });

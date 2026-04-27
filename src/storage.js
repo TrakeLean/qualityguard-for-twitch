@@ -2,10 +2,20 @@ import { DEFAULT_SETTINGS, DEFAULT_STATS } from './lib/defaults.js';
 
 const SETTINGS_KEY = 'settings';
 const STATS_KEY = 'stats';
+const TRIGGER_MIGRATIONS = Object.freeze({
+  anyChange: 'anyDrop'
+});
+
+function normalizeSettings(settings) {
+  return {
+    ...settings,
+    trigger: TRIGGER_MIGRATIONS[settings.trigger] ?? settings.trigger
+  };
+}
 
 export async function getSettings() {
   const { [SETTINGS_KEY]: stored } = await chrome.storage.sync.get([SETTINGS_KEY]);
-  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  return normalizeSettings({ ...DEFAULT_SETTINGS, ...(stored ?? {}) });
 }
 
 export async function setSettings(partial) {
@@ -34,7 +44,7 @@ export function subscribeSettings(callback) {
   const listener = (changes, area) => {
     if (area !== 'sync' || !changes[SETTINGS_KEY]) return;
 
-    const next = { ...DEFAULT_SETTINGS, ...(changes[SETTINGS_KEY].newValue ?? {}) };
+    const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...(changes[SETTINGS_KEY].newValue ?? {}) });
     callback(next);
   };
 

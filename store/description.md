@@ -13,7 +13,7 @@ QualityGuard for Twitch fixes it. The moment the player drops to 160p (or any ot
 **Features**
 - Detects forced quality drops on live Twitch channels
 - Restores your preferred quality (Source by default) within ~1 second
-- Configurable trigger sensitivity: only on 160p, any drop, or any change
+- Configurable trigger sensitivity: only on 160p or any drop below your preferred quality
 - Subtle in-player toast confirms when a reset happened (toggleable)
 - Per-tab badge counter shows how many times Twitch tried to punish you
 - Lifetime stats in the popup

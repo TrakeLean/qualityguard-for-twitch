@@ -17,9 +17,6 @@ export function shouldReset(prevHeight, newHeight, settings) {
       return newHeight < targetH;
     }
 
-    case 'anyChange':
-      return true;
-
     default:
       return false;
   }
