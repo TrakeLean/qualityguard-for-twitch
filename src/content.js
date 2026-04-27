@@ -2,7 +2,7 @@ import { getSettings, subscribeSettings, recordReset } from './storage.js';
 import { createLogger } from './debug.js';
 import { shouldReset } from './lib/trigger.js';
 import { createCooldown } from './lib/cooldown.js';
-import { findSettingsButton, findQualityOptions, findOptionByLabel } from './lib/selectors.js';
+import { findSettingsButton, findQualityMenuButton, findQualityOptions, findOptionByLabel } from './lib/selectors.js';
 import { MSG } from './lib/messages.js';
 
 let settings;
@@ -103,8 +103,11 @@ async function uiAutomationFallback(target) {
   if (!button) return false;
 
   button.click();
-  for (let i = 0; i < 30; i++) {
+  let clickedQualityMenu = false;
+
+  for (let i = 0; i < 40; i++) {
     await new Promise(resolve => setTimeout(resolve, 50));
+
     const opts = findQualityOptions();
     if (opts.length) {
       const targetLabel = target === 'chunked' ? 'Source' : target === 'auto' ? 'Auto' : target;
@@ -113,6 +116,14 @@ async function uiAutomationFallback(target) {
         opt.element.click();
         document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
         return true;
+      }
+    }
+
+    if (!clickedQualityMenu) {
+      const qualityButton = findQualityMenuButton();
+      if (qualityButton) {
+        qualityButton.click();
+        clickedQualityMenu = true;
       }
     }
   }

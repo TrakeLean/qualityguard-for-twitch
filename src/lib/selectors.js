@@ -13,6 +13,23 @@ const QUALITY_OPTION_SELECTORS = [
   '[role="menuitemradio"]'
 ];
 
+const QUALITY_MENU_SELECTORS = [
+  '[data-a-target="player-settings-menu-item-quality"]',
+  '[data-a-target="player-settings-menuitem-quality"]',
+  '[role="menuitem"][data-a-target*="quality" i]',
+  'button[data-a-target*="quality" i]'
+];
+
+const QUALITY_MENU_WORDS = ['quality', 'kvalitet'];
+
+function getLabelText(el) {
+  return [
+    el.getAttribute('aria-label'),
+    el.getAttribute('title'),
+    el.textContent
+  ].filter(Boolean).join(' ').trim();
+}
+
 export function findSettingsButton(root = document) {
   for (const sel of SETTINGS_BUTTON_SELECTORS) {
     const el = root.querySelector(sel);
@@ -21,13 +38,27 @@ export function findSettingsButton(root = document) {
 
   const controlButtons = root.querySelectorAll('#channel-player .player-controls__right-control-group button');
   for (const el of controlButtons) {
-    const text = [
-      el.getAttribute('aria-label'),
-      el.getAttribute('title'),
-      el.textContent
-    ].filter(Boolean).join(' ').toLowerCase();
+    const text = getLabelText(el).toLowerCase();
 
     if (SETTINGS_WORDS.some(word => text.includes(word))) return el;
+  }
+
+  return null;
+}
+
+export function findQualityMenuButton(root = document) {
+  for (const sel of QUALITY_MENU_SELECTORS) {
+    const el = root.querySelector(sel);
+    if (el && el.getAttribute('role') !== 'menuitemradio') return el;
+  }
+
+  const menuItems = root.querySelectorAll('[role="menuitem"], button, [data-a-target*="quality" i]');
+  for (const el of menuItems) {
+    if (el.getAttribute('role') === 'menuitemradio') continue;
+    if (el.matches?.('[data-a-target="player-settings-submenu-quality-option"]')) continue;
+
+    const text = getLabelText(el).toLowerCase();
+    if (QUALITY_MENU_WORDS.some(word => text.includes(word))) return el;
   }
 
   return null;

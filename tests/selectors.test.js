@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { findSettingsButton, findQualityOptions } from '../src/lib/selectors.js';
+import { findSettingsButton, findQualityMenuButton, findQualityOptions } from '../src/lib/selectors.js';
 
 function setBody(html) {
   document.body.innerHTML = html;
@@ -50,6 +50,39 @@ describe('findSettingsButton', () => {
   it('returns null when nothing matches', () => {
     setBody(`<div></div>`);
     expect(findSettingsButton()).toBeNull();
+  });
+});
+
+describe('findQualityMenuButton', () => {
+  beforeEach(() => setBody(''));
+
+  it('finds the English quality submenu item', () => {
+    setBody(`
+      <div role="menu">
+        <button role="menuitem">Playback speed</button>
+        <button role="menuitem" id="quality">Quality</button>
+      </div>
+    `);
+    expect(findQualityMenuButton()?.id).toBe('quality');
+  });
+
+  it('finds the Norwegian quality submenu item', () => {
+    setBody(`
+      <div role="menu">
+        <button role="menuitem">Teksting</button>
+        <button role="menuitem" id="quality">Kvalitet</button>
+      </div>
+    `);
+    expect(findQualityMenuButton()?.id).toBe('quality');
+  });
+
+  it('does not return final quality radio options as the submenu button', () => {
+    setBody(`
+      <div role="menu">
+        <button role="menuitemradio" id="source">1080p60 (Source)</button>
+      </div>
+    `);
+    expect(findQualityMenuButton()).toBeNull();
   });
 });
 
