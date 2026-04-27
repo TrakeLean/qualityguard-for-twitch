@@ -8,7 +8,7 @@ function setBody(html) {
 describe('findSettingsButton', () => {
   beforeEach(() => setBody(''));
 
-  it('finds the button via the user-provided CSS selector', () => {
+  it('finds the settings button in the player controls by semantic label', () => {
     setBody(`
       <div id="channel-player">
         <div>
@@ -28,6 +28,18 @@ describe('findSettingsButton', () => {
     `);
     const btn = findSettingsButton();
     expect(btn?.id).toBe('primary');
+  });
+
+  it('does not pick clip before the settings button', () => {
+    setBody(`
+      <div id="channel-player">
+        <div class="player-controls__right-control-group">
+          <button id="clip" aria-label="Klipp">Klipp</button>
+          <button id="settings" data-a-target="player-settings-button" aria-label="Innstillinger"></button>
+        </div>
+      </div>
+    `);
+    expect(findSettingsButton()?.id).toBe('settings');
   });
 
   it('falls back to data-a-target when CSS selector misses', () => {
