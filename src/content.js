@@ -197,6 +197,11 @@ function storedDefaultQuality() {
   }
 }
 
+function storedDefaultMatchesTarget(storedDefault, target) {
+  if (!storedDefault) return false;
+  return qualityMatchesTarget(storedDefault, target);
+}
+
 async function verifyTargetQuality(target) {
   await sleep(250);
   const result = await postToPage({ type: MSG.AUTOQUALITY_GET }, 1500);
@@ -204,12 +209,12 @@ async function verifyTargetQuality(target) {
 
   if (!result.ok) {
     log('quality verification failed:', result.error);
-    const ok = target === 'auto' && storedDefault === 'auto';
+    const ok = storedDefaultMatchesTarget(storedDefault, target);
     reportEvent('verify_failed', { ok, error: result.error, current: storedDefault });
     return ok;
   }
 
-  const ok = qualityMatchesTarget(result.current, target) || (target === 'auto' && storedDefault === 'auto');
+  const ok = qualityMatchesTarget(result.current, target) || storedDefaultMatchesTarget(storedDefault, target);
   log('quality verification:', result.current, 'storedDefault=', storedDefault, 'target=', target, 'ok=', ok);
   reportEvent('verify_result', { ok, current: { player: result.current, storedDefault } });
   return ok;

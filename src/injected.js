@@ -1,4 +1,5 @@
 import { MSG } from './lib/messages.js';
+import { findSettingsButton, findQualityMenuButton, findQualityOptions, findOptionByLabel } from './lib/selectors.js';
 
 const PROACTIVE_FLAG = '__qualityguard_proactive_done';
 
@@ -43,7 +44,6 @@ function applyProactiveLocalStorage(target) {
   if (window[PROACTIVE_FLAG]) return;
 
   window[PROACTIVE_FLAG] = true;
-  if (target === 'auto') return;
 
   try {
     const raw = localStorage.getItem('video-quality');
@@ -57,6 +57,50 @@ function applyProactiveLocalStorage(target) {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function clickElement(el) {
+  const target = el.closest?.('button, [role="menuitem"], [role="menuitemradio"]') ?? el;
+  target.focus?.();
+  target.click?.();
+}
+
+async function uiAutomationFallback(target) {
+  const button = findSettingsButton();
+  if (!button) return { ok: false, error: 'settings_button_not_found' };
+
+  clickElement(button);
+  let clickedQualityMenu = false;
+
+  for (let i = 0; i < 40; i++) {
+    await sleep(50);
+
+    const opts = findQualityOptions();
+    if (opts.length) {
+      const targetLabel = target === 'chunked' ? 'Source' : target === 'auto' ? 'Auto' : target;
+      const opt = findOptionByLabel(opts, targetLabel) ?? findOptionByLabel(opts, '1080') ?? opts[1] ?? opts[0];
+      if (!opt) return { ok: false, error: 'quality_option_not_found' };
+
+      clickElement(opt.element);
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, composed: true }));
+      return { ok: true, target, selected: opt.label };
+    }
+
+    if (!clickedQualityMenu) {
+      const qualityButton = findQualityMenuButton();
+      if (qualityButton) {
+        clickElement(qualityButton);
+        clickedQualityMenu = true;
+        await sleep(150);
+      }
+    }
+  }
+
+  return { ok: false, error: 'quality_menu_timeout' };
+}
+
 window.addEventListener('message', async event => {
   if (event.source !== window || !event.data || typeof event.data !== 'object') return;
 
@@ -64,10 +108,11 @@ window.addEventListener('message', async event => {
 
   if (type === MSG.AUTOQUALITY_SET) {
     applyProactiveLocalStorage(event.data.target);
-    const player = await waitForPlayer();
+    const player = await waitForPlayer(1500);
 
     if (!player) {
-      window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: false, error: 'player_not_found' }, '*');
+      const uiResult = await uiAutomationFallback(event.data.target);
+      window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ...uiResult, via: 'ui' }, '*');
       return;
     }
 
@@ -75,7 +120,14 @@ window.addEventListener('message', async event => {
       player.setQuality(event.data.target);
       window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: true, target: event.data.target }, '*');
     } catch (err) {
-      window.postMessage({ type: MSG.AUTOQUALITY_RESULT, id, ok: false, error: String(err?.message ?? err) }, '*');
+      const uiResult = await uiAutomationFallback(event.data.target);
+      window.postMessage({
+        type: MSG.AUTOQUALITY_RESULT,
+        id,
+        ...uiResult,
+        via: 'ui',
+        apiError: String(err?.message ?? err)
+      }, '*');
     }
     return;
   }
