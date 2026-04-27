@@ -98,23 +98,73 @@ function showToast(text) {
   setTimeout(() => toast.remove(), 2000);
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function activationTarget(el) {
+  return el.closest?.('button, [role="menuitem"], [role="menuitemradio"]') ?? el;
+}
+
+function dispatchPointerSequence(el) {
+  const rect = el.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const target = document.elementFromPoint(x, y) ?? el;
+  const eventInit = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: x,
+    clientY: y,
+    button: 0,
+    buttons: 1,
+    view: window
+  };
+
+  if (typeof PointerEvent !== 'undefined') {
+    target.dispatchEvent(new PointerEvent('pointerdown', { ...eventInit, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+  }
+  target.dispatchEvent(new MouseEvent('mousedown', eventInit));
+  if (typeof PointerEvent !== 'undefined') {
+    target.dispatchEvent(new PointerEvent('pointerup', { ...eventInit, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+  }
+  target.dispatchEvent(new MouseEvent('mouseup', { ...eventInit, buttons: 0 }));
+  target.dispatchEvent(new MouseEvent('click', { ...eventInit, buttons: 0 }));
+}
+
+function activateElement(el, { keyboard = false } = {}) {
+  const target = activationTarget(el);
+  target.scrollIntoView?.({ block: 'center', inline: 'center' });
+  target.focus?.();
+  dispatchPointerSequence(target);
+  target.click?.();
+
+  if (keyboard) {
+    for (const key of ['Enter', ' ']) {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true }));
+      target.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true, composed: true }));
+    }
+  }
+}
+
 async function uiAutomationFallback(target) {
   const button = findSettingsButton();
   if (!button) return false;
 
-  button.click();
+  activateElement(button);
   let clickedQualityMenu = false;
 
   for (let i = 0; i < 40; i++) {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await sleep(50);
 
     const opts = findQualityOptions();
     if (opts.length) {
       const targetLabel = target === 'chunked' ? 'Source' : target === 'auto' ? 'Auto' : target;
       const opt = findOptionByLabel(opts, targetLabel) ?? findOptionByLabel(opts, '1080') ?? opts[1] ?? opts[0];
       if (opt) {
-        opt.element.click();
-        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        activateElement(opt.element, { keyboard: true });
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, composed: true }));
         return true;
       }
     }
@@ -122,7 +172,8 @@ async function uiAutomationFallback(target) {
     if (!clickedQualityMenu) {
       const qualityButton = findQualityMenuButton();
       if (qualityButton) {
-        qualityButton.click();
+        activateElement(qualityButton, { keyboard: true });
+        await sleep(150);
         clickedQualityMenu = true;
       }
     }
