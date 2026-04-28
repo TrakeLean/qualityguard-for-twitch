@@ -5,51 +5,90 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <header>
-      <h1>QualityGuard</h1>
-      <label class="toggle">
-        <input type="checkbox" id="enabled" />
-        <span>Enabled</span>
-      </label>
-    </header>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-logo" src="../icons/icon48.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>QualityGuard</h1>
+            <div class="status-line"><span class="status-dot" aria-hidden="true"></span><span id="guardStatus">Guard active</span></div>
+          </div>
+        </div>
+        <label class="switch switch-strong" aria-label="Enabled">
+          <input type="checkbox" id="enabled" />
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+        </label>
+      </header>
 
-    <section>
-      <label for="trigger">Trigger</label>
-      <select id="trigger">
-        <option value="forced160">Only when forced to 160p</option>
-        <option value="anyDrop">Any drop from preferred quality</option>
-      </select>
-    </section>
+      <section class="panel controls-panel">
+        <div class="field">
+          <label for="trigger">Trigger</label>
+          <select id="trigger">
+            <option value="forced160">Only when forced to 160p</option>
+            <option value="anyDrop">Any drop from preferred quality</option>
+          </select>
+        </div>
 
-    <section>
-      <label for="targetQuality">Target quality</label>
-      <select id="targetQuality">
-        <option value="auto">Auto</option>
-        <option value="chunked">Source</option>
-        <option value="1080p60">1080p60</option>
-        <option value="720p60">720p60</option>
-        <option value="480p">480p</option>
-        <option value="360p">360p</option>
-        <option value="160p">160p</option>
-      </select>
-    </section>
+        <div class="field">
+          <label for="targetQuality">Target quality</label>
+          <select id="targetQuality">
+            <option value="auto">Auto</option>
+            <option value="chunked">Source</option>
+            <option value="1080p60">1080p60</option>
+            <option value="720p60">720p60</option>
+            <option value="480p">480p</option>
+            <option value="360p">360p</option>
+            <option value="160p">160p</option>
+          </select>
+        </div>
+      </section>
 
-    <section>
-      <label class="toggle"><input type="checkbox" id="showToast" /> <span>Show toast in player</span></label>
-      <label class="toggle"><input type="checkbox" id="debugMode" /> <span>Debug mode</span></label>
-    </section>
+      <section class="panel option-list">
+        <label class="option-row">
+          <span>
+            <span class="option-title">Show toast in player</span>
+            <span class="option-note">Visible recovery confirmation</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="showToast" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+        <label class="option-row">
+          <span>
+            <span class="option-title">Debug mode</span>
+            <span class="option-note">Record extra diagnostic events</span>
+          </span>
+          <span class="switch">
+            <input type="checkbox" id="debugMode" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+      </section>
 
-    <section class="stats">
-      <h2>Stats</h2>
-      <div>Lifetime resets: <span id="lifetime">0</span></div>
-      <div>This tab: <span id="tab">0</span></div>
-      <div>Last reset: <span id="last">never</span></div>
-    </section>
+      <section class="panel stats">
+        <div class="section-title">Stats</div>
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="stat-value" id="lifetime">0</span>
+            <span class="stat-label">Lifetime</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="tab">0</span>
+            <span class="stat-label">This tab</span>
+          </div>
+        </div>
+        <div class="last-reset">
+          <span>Last reset</span>
+          <strong id="last">never</strong>
+        </div>
+      </section>
 
-    <section>
-      <button id="copyDebug">Copy debug info</button>
-      <span id="copyDebugStatus"></span>
-    </section>
+      <section class="debug-row" id="debugActions" hidden>
+        <button id="copyDebug">Copy debug info</button>
+        <span id="copyDebugStatus" role="status" aria-live="polite"></span>
+      </section>
+    </main>
 
     <script type="module" src="popup.js"></script>
   </body>

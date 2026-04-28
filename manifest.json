@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "QualityGuard for Twitch",
   "short_name": "QualityGuard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Restores your preferred Twitch player quality after forced downgrades.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.twitch.tv/*"],

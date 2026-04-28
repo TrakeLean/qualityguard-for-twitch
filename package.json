@@ -1,6 +1,6 @@
 {
   "name": "qualityguard-for-twitch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Restores Twitch player quality after ad-block-triggered forced downgrades.",
   "private": true,
   "type": "module",

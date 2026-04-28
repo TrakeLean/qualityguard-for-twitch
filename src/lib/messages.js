@@ -1,4 +1,5 @@
 export const MSG = Object.freeze({
+  AUTOQUALITY_READY: 'autoquality:ready',
   AUTOQUALITY_SET: 'autoquality:set',
   AUTOQUALITY_GET: 'autoquality:get',
   AUTOQUALITY_RESULT: 'autoquality:result',

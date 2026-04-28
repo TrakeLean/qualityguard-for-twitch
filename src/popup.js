@@ -28,6 +28,7 @@ function relativeTime(iso) {
 async function render() {
   const [settings, stats, tabCount] = await Promise.all([getSettings(), getStats(), getTabBadgeCount()]);
 
+  document.body.classList.toggle('is-disabled', !settings.enabled);
   document.getElementById('enabled').checked = settings.enabled;
   document.getElementById('trigger').value = settings.trigger;
   document.getElementById('targetQuality').value = settings.targetQuality;
@@ -36,10 +37,15 @@ async function render() {
   document.getElementById('lifetime').textContent = String(stats.lifetimeResets);
   document.getElementById('tab').textContent = String(tabCount);
   document.getElementById('last').textContent = relativeTime(stats.lastResetAt);
+  document.getElementById('debugActions').hidden = !settings.debugMode;
+  document.getElementById('guardStatus').textContent = settings.enabled ? 'Guard active' : 'Guard off';
 }
 
 function bind(id, key, prop = 'checked') {
-  document.getElementById(id).addEventListener('change', e => setSettings({ [key]: e.target[prop] }));
+  document.getElementById(id).addEventListener('change', async e => {
+    await setSettings({ [key]: e.target[prop] });
+    render();
+  });
 }
 
 bind('enabled', 'enabled');

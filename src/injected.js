@@ -3,6 +3,8 @@ import { findSettingsButton, findQualityMenuButton, findQualityOptions, findOpti
 
 const PROACTIVE_FLAG = '__qualityguard_proactive_done';
 
+window.postMessage({ type: MSG.AUTOQUALITY_READY }, '*');
+
 function findPlayerFromVideo(video) {
   const roots = [
     video,
