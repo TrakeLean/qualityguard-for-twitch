@@ -218,8 +218,7 @@ function playerToggleSvg() {
   return `
     <svg viewBox="56 64 400 400" focusable="false" aria-hidden="true" role="presentation">
       <g class="qualityguard-player-toggle-logo">
-        <path fill="#9146FF" d="M256 64 L432 128 L432 272 C432 368 352 432 256 464 C160 432 80 368 80 272 L80 128 Z"></path>
-        <path fill="#FFFFFF" d="M256 168 L352 280 L296 280 L296 360 L216 360 L216 280 L160 280 Z"></path>
+        <path fill="#9146FF" fill-rule="evenodd" d="M256 64 L432 128 L432 272 C432 368 352 432 256 464 C160 432 80 368 80 272 L80 128 Z M256 168 L352 280 L296 280 L296 360 L216 360 L216 280 L160 280 Z"></path>
       </g>
       <path class="qualityguard-player-toggle-slash" d="M104 408 L408 104" fill="none" stroke="#FF4D4D" stroke-width="52" stroke-linecap="round"></path>
       <path class="qualityguard-player-toggle-slash" d="M104 408 L408 104" fill="none" stroke="rgba(20,20,24,.86)" stroke-width="24" stroke-linecap="round"></path>
